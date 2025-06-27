@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Caixa de Vendas</title>
+    <meta name="theme-color" content="#2563eb"/>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .active-tab {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .receipt-item:hover {
+            background-color: #f3f4f6;
+        }
+        .print-area {
+            display: none;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .print-area, .print-area * {
+                visibility: visible;
+            }
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4 max-w-6xl">
+        <header class="bg-blue-600 text-white p-4 rounded-t-lg shadow-md">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">
+                    <i class="fas fa-cash-register mr-2"></i> Sistema de Caixa
+                </h1>
+                <div class="text-sm">
+                    <span id="current-date" class="mr-4"></span>
+                    <span id="current-time"></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="bg-white rounded-b-lg shadow-lg overflow-hidden">
+            <!-- Tabs -->
+            <div class="flex border-b no-print">
+                <button id="sales-tab" class="flex-1 py-3 px-4 font-medium text-center active-tab">
+                    <i class="fas fa-shopping-cart mr-2"></i> Vendas
+                </button>
+                <button id="products-tab" class="flex-1 py-3 px-4 font-medium text-center hover:bg-blue-50">
+                    <i class="fas fa-boxes mr-2"></i> Produtos
+                </button>
+                <button id="reports-tab" class="flex-1 py-3 px-4 font-medium text-center hover:bg-blue-50">
+                    <i class="fas fa-chart-bar mr-2"></i> Relatórios
+                </button>
+                <button id="backup-tab" class="flex-1 py-3 px-4 font-medium text-center hover:bg-blue-50">
+                    <i class="fas fa-database mr-2"></i> Backup
+                </button>
+            </div>
+
+            <!-- Sales Tab Content -->
+            <div id="sales-content" class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Product Selection -->
+                    <div class="md:col-span-2">
+                        <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <div class="flex mb-4">
+                                <input type="text" id="product-search" placeholder="Buscar produto..." 
+                                    class="flex-1 p-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button id="search-btn" class="bg-blue-600 text-white px-4 rounded-r-lg hover:bg-blue-700">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2" id="product-grid">
+                                <!-- Products will be added here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cart and Payment -->
+                    <div>
+                        <div class="bg-gray-50 p-4 rounded-lg shadow-inner h-full">
+                            <h3 class="font-bold text-lg mb-4 border-b pb-2">
+                                <i class="fas fa-receipt mr-2"></i> Resumo da Venda
+                            </h3>
+                            
+                            <div class="mb-4 max-h-64 overflow-y-auto" id="receipt-items">
+                                <!-- Receipt items will be added here -->
+                                <p class="text-gray-500 text-center py-10">Nenhum item adicionado</p>
+                            </div>
+                            
+                            <div class="border-t pt-2">
+                                <div class="flex justify-between font-semibold mb-1">
+                                    <span>Subtotal:</span>
+                                    <span id="subtotal">R$ 0,00</span>
+                                </div>
+                                <div class="flex justify-between mb-3">
+                                    <span>Quantidade de Itens:</span>
+                                    <span id="item-count">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="border-t pt-3">
+                                <div class="mb-3">
+                                    <label class="block mb-1">Forma de Pagamento:</label>
+                                    <select id="payment-method" class="w-full p-2 border rounded">
+                                        <option value="cash">Dinheiro</option>
+                                        <option value="credit">Cartão de Crédito</option>
+                                        <option value="debit">Cartão de Débito</option>
+                                        <option value="pix">PIX</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="cash-payment" class="mb-3">
+                                    <label class="block mb-1">Valor Recebido:</label>
+                                    <input type="number" id="amount-received" placeholder="R$ 0,00" 
+                                        class="w-full p-2 border rounded">
+                                </div>
+                                
+                                <div id="change-section" class="bg-yellow-50 p-2 rounded mb-3 hidden">
+                                    <div class="flex justify-between font-semibold">
+                                        <span>Troco:</span>
+                                        <span id="change-amount">R$ 0,00</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex space-x-2">
+                                    <button id="cancel-sale" class="flex-1 bg-red-500 text-white py-2 rounded hover:bg-red-600">
+                                        <i class="fas fa-times mr-1"></i> Cancelar
+                                    </button>
+                                    <button id="complete-sale" class="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700">
+                                        <i class="fas fa-check mr-1"></i> Finalizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Tab Content -->
+            <div id="products-content" class="p-4 hidden">
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg">
+                            <i class="fas fa-box-open mr-2"></i> Cadastro de Produtos
+                        </h3>
+                        <button id="add-product-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            <i class="fas fa-plus mr-1"></i> Adicionar
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                            <thead class="bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-4 text-left">Código</th>
+                                    <th class="py-2 px-4 text-left">Nome</th>
+                                    <th class="py-2 px-4 text-left">Preço</th>
+                                    <th class="py-2 px-4 text-left">Estoque</th>
+                                    <th class="py-2 px-4 text-left">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-table-body" class="divide-y divide-gray-200">
+                                <!-- Products will be added here dynamically -->
+                                <tr>
+                                    <td colspan="5" class="py-4 text-center text-gray-500">Nenhum produto cadastrado</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Add/Edit Product Modal -->
+                <div id="product-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+                    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-lg" id="modal-title">Adicionar Produto</h3>
+                            <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <form id="product-form">
+                            <input type="hidden" id="product-id">
+                            <div class="mb-4">
+                                <label for="product-code" class="block mb-1">Código:</label>
+                                <input type="text" id="product-code" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="product-name" class="block mb-1">Nome:</label>
+                                <input type="text" id="product-name" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="product-price" class="block mb-1">Preço (R$):</label>
+                                <input type="number" step="0.01" id="product-price" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="product-stock" class="block mb-1">Estoque:</label>
+                                <input type="number" id="product-stock" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div class="flex justify-end space-x-2">
+                                <button type="button" id="cancel-product" class="px-4 py-2 border rounded hover:bg-gray-100">
+                                    Cancelar
+                                </button>
+                                <button type="submit" id="save-product" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab Content -->
+            <div id="reports-content" class="p-4 hidden">
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <h3 class="font-bold text-lg mb-4">
+                        <i class="fas fa-chart-pie mr-2"></i> Relatórios de Vendas
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-white p-4 rounded-lg shadow border border-blue-100">
+                            <div class="text-blue-600 mb-2">
+                                <i class="fas fa-money-bill-wave text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold">Total de Vendas Hoje</h4>
+                            <p class="text-2xl font-bold" id="today-sales">R$ 0,00</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow border border-green-100">
+                            <div class="text-green-600 mb-2">
+                                <i class="fas fa-shopping-basket text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold">Itens Vendidos Hoje</h4>
+                            <p class="text-2xl font-bold" id="today-items">0</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow border border-purple-100">
+                            <div class="text-purple-600 mb-2">
+                                <i class="fas fa-calendar-day text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold">Vendas do Mês</h4>
+                            <p class="text-2xl font-bold" id="month-sales">R$ 0,00</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h4 class="font-semibold mb-2">Filtrar por período:</h4>
+                        <div class="flex flex-wrap gap-2">
+                            <input type="date" id="start-date" class="p-2 border rounded">
+                            <input type="date" id="end-date" class="p-2 border rounded">
+                            <button id="filter-reports" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                <i class="fas fa-filter mr-1"></i> Filtrar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                            <thead class="bg-gray-200">
+                                <tr>
+                                    <th class="py-2 px-4 text-left">Data</th>
+                                    <th class="py-2 px-4 text-left">Itens</th>
+                                    <th class="py-2 px-4 text-left">Total</th>
+                                    <th class="py-2 px-4 text-left">Pagamento</th>
+                                    <th class="py-2 px-4 text-left">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sales-table-body" class="divide-y divide-gray-200">
+                                <!-- Sales will be added here dynamically -->
+                                <tr>
+                                    <td colspan="5" class="py-4 text-center text-gray-500">Nenhuma venda registrada</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup Tab Content -->
+            <div id="backup-content" class="p-4 hidden">
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
+                    <h3 class="font-bold text-lg mb-4">
+                        <i class="fas fa-database mr-2"></i> Backup dos Dados
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-white p-4 rounded-lg shadow border border-blue-100">
+                            <div class="text-blue-600 mb-2">
+                                <i class="fas fa-file-export text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold mb-2">Exportar Dados</h4>
+                            <p class="text-sm text-gray-600 mb-4">Exporte todos os dados do sistema para um arquivo JSON.</p>
+                            <button id="export-data" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                <i class="fas fa-download mr-1"></i> Exportar Dados
+                            </button>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-lg shadow border border-green-100">
+                            <div class="text-green-600 mb-2">
+                                <i class="fas fa-file-import text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold mb-2">Importar Dados</h4>
+                            <p class="text-sm text-gray-600 mb-4">Importe dados de um arquivo JSON para o sistema.</p>
+                            <div class="flex flex-col">
+                                <input type="file" id="import-file" accept=".json" class="hidden">
+                                <label for="import-file" class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center cursor-pointer mb-2">
+                                    <i class="fas fa-upload mr-1"></i> Selecionar Arquivo
+                                </label>
+                                <button id="import-data" class="w-full bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800">
+                                    <i class="fas fa-check mr-1"></i> Confirmar Importação
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow border border-red-100">
+                        <div class="text-red-600 mb-2">
+                            <i class="fas fa-trash-alt text-2xl"></i>
+                        </div>
+                        <h4 class="font-semibold mb-2">Limpar Dados</h4>
+                        <p class="text-sm text-gray-600 mb-4">Remova todos os dados do sistema (esta ação não pode ser desfeita).</p>
+                        <button id="clear-data" class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                            <i class="fas fa-exclamation-triangle mr-1"></i> Limpar Todos os Dados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Print Area -->
+    <div class="print-area" id="receipt-print">
+        <div class="p-4 max-w-xs mx-auto">
+            <div class="text-center mb-2">
+                <h2 class="font-bold text-lg">LOJA EXEMPLO</h2>
+                <p class="text-sm">Rua das Flores, 123 - Centro</p>
+                <p class="text-sm">CNPJ: 12.345.678/0001-99</p>
+            </div>
+            
+            <div class="border-t border-b border-black py-2 my-2 text-center">
+                <p class="text-sm">COMPROVANTE DE VENDA</p>
+                <p class="text-xs" id="receipt-date"></p>
+            </div>
+            
+            <div id="receipt-items-print" class="text-sm mb-2">
+                <!-- Receipt items will be added here -->
+            </div>
+            
+            <div class="border-t border-black pt-2 text-sm">
+                <div class="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span id="receipt-subtotal">R$ 0,00</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Forma de Pagamento:</span>
+                    <span id="receipt-payment">Dinheiro</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Valor Recebido:</span>
+                    <span id="receipt-received">R$ 0,00</span>
+                </div>
+                <div class="flex justify-between font-bold">
+                    <span>Troco:</span>
+                    <span id="receipt-change">R$ 0,00</span>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4 text-xs">
+                <p>Obrigado pela preferência!</p>
+                <p>Volte sempre!</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // Data storage keys
+        const STORAGE_KEYS = {
+            PRODUCTS: 'pos_products',
+            SALES: 'pos_sales'
+        };
+
+        // Load data from localStorage or use sample data
+        let products = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || [
+            { id: 1, code: 'P001', name: 'Arroz 5kg', price: 22.90, stock: 50 },
+            { id: 2, code: 'P002', name: 'Feijão 1kg', price: 8.50, stock: 40 },
+            { id: 3, code: 'P003', name: 'Óleo 900ml', price: 7.99, stock: 30 },
+            { id: 4, code: 'P004', name: 'Açúcar 5kg', price: 18.75, stock: 25 },
+            { id: 5, code: 'P005', name: 'Café 500g', price: 15.90, stock: 35 },
+            { id: 6, code: 'P006', name: 'Leite 1L', price: 4.99, stock: 60 },
+            { id: 7, code: 'P007', name: 'Pão de Forma', price: 9.25, stock: 20 },
+            { id: 8, code: 'P008', name: 'Manteiga 200g', price: 6.80, stock: 15 }
+        ];
+
+        let sales = JSON.parse(localStorage.getItem(STORAGE_KEYS.SALES)) || [
+            { id: 1, date: '2023-06-15 09:30', items: [
+                { productId: 1, name: 'Arroz 5kg', price: 22.90, quantity: 2, subtotal: 45.80 },
+                { productId: 2, name: 'Feijão 1kg', price: 8.50, quantity: 3, subtotal: 25.50 }
+            ], total: 71.30, payment: 'cash', received: 80.00, change: 8.70 },
+            { id: 2, date: '2023-06-15 14:15', items: [
+                { productId: 5, name: 'Café 500g', price: 15.90, quantity: 1, subtotal: 15.90 },
+                { productId: 6, name: 'Leite 1L', price: 4.99, quantity: 4, subtotal: 19.96 }
+            ], total: 35.86, payment: 'debit', received: 35.86, change: 0.00 }
+        ];
+
+        // Current sale
+        let currentSale = {
+            items: [],
+            payment: 'cash',
+            received: 0,
+            change: 0
+        };
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+            localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(sales));
+        }
+
+        // Export data as JSON file
+        function exportData() {
+            const data = {
+                products: products,
+                sales: sales
+            };
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `backup-sistema-caixa-${new Date().toISOString().slice(0, 10)}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        // Import data from JSON file
+        function importData(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (!data.products || !data.sales) {
+                        alert('Arquivo inválido. O arquivo deve conter dados de produtos e vendas.');
+                        return;
+                    }
+                    
+                    if (confirm('Tem certeza que deseja importar os dados? Isso substituirá todos os dados atuais.')) {
+                        products = data.products;
+                        sales = data.sales;
+                        saveData();
+                        
+                        // Update UI
+                        updateProductGrid();
+                        updateProductTable();
+                        updateReports();
+                        
+                        alert('Dados importados com sucesso!');
+                    }
+                } catch (error) {
+                    alert('Erro ao ler o arquivo. Certifique-se de que é um arquivo JSON válido.');
+                    console.error(error);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // Clear all data
+        function clearData() {
+            if (confirm('Tem certeza que deseja limpar TODOS os dados? Esta ação não pode ser desfeita.')) {
+                products = [];
+                sales = [];
+                saveData();
+                
+                // Update UI
+                updateProductGrid();
+                updateProductTable();
+                updateReports();
+                
+                alert('Todos os dados foram removidos.');
+            }
+        }
+
+        // DOM Elements
+        const salesTab = document.getElementById('sales-tab');
+        const productsTab = document.getElementById('products-tab');
+        const reportsTab = document.getElementById('reports-tab');
+        const backupTab = document.getElementById('backup-tab');
+        const salesContent = document.getElementById('sales-content');
+        const productsContent = document.getElementById('products-content');
+        const reportsContent = document.getElementById('reports-content');
+        const backupContent = document.getElementById('backup-content');
+        const productGrid = document.getElementById('product-grid');
+        const receiptItems = document.getElementById('receipt-items');
+        const subtotalElement = document.getElementById('subtotal');
+        const itemCountElement = document.getElementById('item-count');
+        const paymentMethod = document.getElementById('payment-method');
+        const cashPayment = document.getElementById('cash-payment');
+        const amountReceived = document.getElementById('amount-received');
+        const changeSection = document.getElementById('change-section');
+        const changeAmount = document.getElementById('change-amount');
+        const cancelSaleBtn = document.getElementById('cancel-sale');
+        const completeSaleBtn = document.getElementById('complete-sale');
+        const productTableBody = document.getElementById('product-table-body');
+        const addProductBtn = document.getElementById('add-product-btn');
+        const productModal = document.getElementById('product-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const productForm = document.getElementById('product-form');
+        const productIdInput = document.getElementById('product-id');
+        const productCodeInput = document.getElementById('product-code');
+        const productNameInput = document.getElementById('product-name');
+        const productPriceInput = document.getElementById('product-price');
+        const productStockInput = document.getElementById('product-stock');
+        const cancelProductBtn = document.getElementById('cancel-product');
+        const saveProductBtn = document.getElementById('save-product');
+        const modalTitle = document.getElementById('modal-title');
+        const todaySalesElement = document.getElementById('today-sales');
+        const todayItemsElement = document.getElementById('today-items');
+        const monthSalesElement = document.getElementById('month-sales');
+        const salesTableBody = document.getElementById('sales-table-body');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const filterReportsBtn = document.getElementById('filter-reports');
+        const receiptPrint = document.getElementById('receipt-print');
+        const receiptDatePrint = document.getElementById('receipt-date');
+        const receiptItemsPrint = document.getElementById('receipt-items-print');
+        const receiptSubtotalPrint = document.getElementById('receipt-subtotal');
+        const receiptPaymentPrint = document.getElementById('receipt-payment');
+        const receiptReceivedPrint = document.getElementById('receipt-received');
+        const receiptChangePrint = document.getElementById('receipt-change');
+        const productSearch = document.getElementById('product-search');
+        const searchBtn = document.getElementById('search-btn');
+        const exportDataBtn = document.getElementById('export-data');
+        const importFileInput = document.getElementById('import-file');
+        const importDataBtn = document.getElementById('import-data');
+        const clearDataBtn = document.getElementById('clear-data');
+
+        // Format currency
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        }
+
+        // Update date and time
+        function updateDateTime() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', options);
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('pt-BR');
+        }
+
+        // Update product grid
+        function updateProductGrid(filter = '') {
+            productGrid.innerHTML = '';
+            
+            const filteredProducts = products.filter(product => 
+                product.name.toLowerCase().includes(filter.toLowerCase()) || 
+                product.code.toLowerCase().includes(filter.toLowerCase())
+            );
+            
+            if (filteredProducts.length === 0) {
+                productGrid.innerHTML = '<p class="col-span-4 text-center text-gray-500 py-10">Nenhum produto encontrado</p>';
+                return;
+            }
+            
+            filteredProducts.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.className = 'bg-white p-3 rounded-lg shadow border border-gray-200 hover:shadow-md cursor-pointer transition-shadow';
+                productCard.innerHTML = `
+                    <div class="text-center">
+                        <div class="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <h4 class="font-semibold truncate">${product.name}</h4>
+                        <p class="text-sm text-gray-600">${product.code}</p>
+                        <p class="font-bold text-blue-600 mt-1">${formatCurrency(product.price)}</p>
+                        <p class="text-xs text-gray-500">Estoque: ${product.stock}</p>
+                    </div>
+                `;
+                productCard.addEventListener('click', () => addToCart(product));
+                productGrid.appendChild(productCard);
+            });
+        }
+
+        // Add product to cart
+        function addToCart(product) {
+            // Check if product already in cart
+            const existingItem = currentSale.items.find(item => item.productId === product.id);
+            
+            if (existingItem) {
+                // Increase quantity if already in cart
+                existingItem.quantity += 1;
+                existingItem.subtotal = existingItem.price * existingItem.quantity;
+            } else {
+                // Add new item to cart
+                currentSale.items.push({
+                    productId: product.id,
+                    name: product.name,
+                    price: product.price,
+                    quantity: 1,
+                    subtotal: product.price
+                });
+            }
+            
+            updateReceipt();
+        }
+
+        // Update receipt display
+        function updateReceipt() {
+            receiptItems.innerHTML = '';
+            
+            if (currentSale.items.length === 0) {
+                receiptItems.innerHTML = '<p class="text-gray-500 text-center py-10">Nenhum item adicionado</p>';
+                subtotalElement.textContent = 'R$ 0,00';
+                itemCountElement.textContent = '0';
+                return;
+            }
+            
+            let subtotal = 0;
+            let itemCount = 0;
+            
+            currentSale.items.forEach(item => {
+                subtotal += item.subtotal;
+                itemCount += item.quantity;
+                
+                const itemElement = document.createElement('div');
+                itemElement.className = 'receipt-item flex justify-between items-center py-2 px-3 border-b';
+                itemElement.innerHTML = `
+                    <div>
+                        <p class="font-medium">${item.name}</p>
+                        <p class="text-sm text-gray-500">${formatCurrency(item.price)} x ${item.quantity}</p>
+                    </div>
+                    <div class="flex items-center">
+                        <p class="font-semibold mr-3">${formatCurrency(item.subtotal)}</p>
+                        <button class="text-red-500 hover:text-red-700 remove-item" data-id="${item.productId}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                receiptItems.appendChild(itemElement);
+            });
+            
+            subtotalElement.textContent = formatCurrency(subtotal);
+            itemCountElement.textContent = itemCount;
+            
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.remove-item').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const productId = parseInt(button.getAttribute('data-id'));
+                    removeFromCart(productId);
+                });
+            });
+            
+            // Update change if payment is cash
+            if (paymentMethod.value === 'cash') {
+                calculateChange();
+            }
+        }
+
+        // Remove item from cart
+        function removeFromCart(productId) {
+            currentSale.items = currentSale.items.filter(item => item.productId !== productId);
+            updateReceipt();
+        }
+
+        // Calculate change
+        function calculateChange() {
+            const subtotal = currentSale.items.reduce((sum, item) => sum + item.subtotal, 0);
+            const received = parseFloat(amountReceived.value) || 0;
+            const change = received - subtotal;
+            
+            if (change > 0) {
+                changeSection.classList.remove('hidden');
+                changeAmount.textContent = formatCurrency(change);
+                currentSale.change = change;
+            } else {
+                changeSection.classList.add('hidden');
+                currentSale.change = 0;
+            }
+            
+            currentSale.received = received;
+        }
+
+        // Complete sale
+        function completeSale() {
+            if (currentSale.items.length === 0) {
+                alert('Adicione pelo menos um item para finalizar a venda!');
+                return;
+            }
+            
+            const subtotal = currentSale.items.reduce((sum, item) => sum + item.subtotal, 0);
+            const payment = paymentMethod.value;
+            
+            if (payment === 'cash') {
+                const received = parseFloat(amountReceived.value) || 0;
+                if (received < subtotal) {
+                    alert('O valor recebido é menor que o total da venda!');
+                    return;
+                }
+            }
+            
+            // Create new sale
+            const now = new Date();
+            const sale = {
+                id: sales.length > 0 ? Math.max(...sales.map(s => s.id)) + 1 : 1,
+                date: now.toISOString(),
+                items: [...currentSale.items],
+                total: subtotal,
+                payment: payment,
+                received: payment === 'cash' ? parseFloat(amountReceived.value) : subtotal,
+                change: payment === 'cash' ? currentSale.change : 0
+            };
+            
+            // Add to sales
+            sales.push(sale);
+            
+            // Update product stock
+            sale.items.forEach(item => {
+                const product = products.find(p => p.id === item.productId);
+                if (product) {
+                    product.stock -= item.quantity;
+                }
+            });
+            
+            // Save data
+            saveData();
+            
+            // Print receipt
+            printReceipt(sale);
+            
+            // Reset current sale
+            currentSale = {
+                items: [],
+                payment: 'cash',
+                received: 0,
+                change: 0
+            };
+            
+            // Update UI
+            updateReceipt();
+            paymentMethod.value = 'cash';
+            amountReceived.value = '';
+            changeSection.classList.add('hidden');
+            updateProductGrid();
+            updateProductTable();
+            updateReports();
+        }
+
+        // Print receipt
+        function printReceipt(sale) {
+            // Format date
+            const saleDate = new Date(sale.date);
+            const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+            receiptDatePrint.textContent = saleDate.toLocaleDateString('pt-BR', options);
+            
+            // Add items
+            receiptItemsPrint.innerHTML = '';
+            sale.items.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'flex justify-between py-1';
+                itemElement.innerHTML = `
+                    <span>${item.name} (${item.quantity}x ${formatCurrency(item.price)})</span>
+                    <span>${formatCurrency(item.subtotal)}</span>
+                `;
+                receiptItemsPrint.appendChild(itemElement);
+            });
+            
+            // Add totals
+            receiptSubtotalPrint.textContent = formatCurrency(sale.total);
+            receiptPaymentPrint.textContent = 
+                sale.payment === 'cash' ? 'Dinheiro' : 
+                sale.payment === 'credit' ? 'Cartão de Crédito' : 
+                sale.payment === 'debit' ? 'Cartão de Débito' : 'PIX';
+            receiptReceivedPrint.textContent = formatCurrency(sale.received);
+            receiptChangePrint.textContent = formatCurrency(sale.change);
+            
+            // Print
+            window.print();
+        }
+
+        // Update product table
+        function updateProductTable() {
+            productTableBody.innerHTML = '';
+            
+            if (products.length === 0) {
+                productTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-gray-500">Nenhum produto cadastrado</td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            products.forEach(product => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="py-2 px-4">${product.code}</td>
+                    <td class="py-2 px-4">${product.name}</td>
+                    <td class="py-2 px-4">${formatCurrency(product.price)}</td>
+                    <td class="py-2 px-4">${product.stock}</td>
+                    <td class="py-2 px-4">
+                        <button class="text-blue-500 hover:text-blue-700 mr-2 edit-product" data-id="${product.id}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="text-red-500 hover:text-red-700 delete-product" data-id="${product.id}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+                productTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to edit and delete buttons
+            document.querySelectorAll('.edit-product').forEach(button => {
+                button.addEventListener('click', () => editProduct(parseInt(button.getAttribute('data-id'))));
+            });
+            
+            document.querySelectorAll('.delete-product').forEach(button => {
+                button.addEventListener('click', () => deleteProduct(parseInt(button.getAttribute('data-id'))));
+            });
+        }
+
+        // Add new product
+        function addProduct() {
+            productIdInput.value = '';
+            productCodeInput.value = '';
+            productNameInput.value = '';
+            productPriceInput.value = '';
+            productStockInput.value = '';
+            modalTitle.textContent = 'Adicionar Produto';
+            productModal.classList.remove('hidden');
+        }
+
+        // Edit product
+        function editProduct(id) {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+            
+            productIdInput.value = product.id;
+            productCodeInput.value = product.code;
+            productNameInput.value = product.name;
+            productPriceInput.value = product.price;
+            productStockInput.value = product.stock;
+            modalTitle.textContent = 'Editar Produto';
+            productModal.classList.remove('hidden');
+        }
+
+        // Delete product
+        function deleteProduct(id) {
+            if (confirm('Tem certeza que deseja excluir este produto?')) {
+                products = products.filter(product => product.id !== id);
+                saveData();
+                updateProductTable();
+                updateProductGrid();
+            }
+        }
+
+        // Save product
+        function saveProduct(e) {
+            e.preventDefault();
+            
+            const id = productIdInput.value ? parseInt(productIdInput.value) : 0;
+            const code = productCodeInput.value.trim();
+            const name = productNameInput.value.trim();
+            const price = parseFloat(productPriceInput.value);
+            const stock = parseInt(productStockInput.value);
+            
+            if (!code || !name || isNaN(price) || isNaN(stock)) {
+                alert('Preencha todos os campos corretamente!');
+                return;
+            }
+            
+            if (id) {
+                // Update existing product
+                const index = products.findIndex(p => p.id === id);
+                if (index !== -1) {
+                    products[index] = { id, code, name, price, stock };
+                }
+            } else {
+                // Add new product
+                const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
+                products.push({ id: newId, code, name, price, stock });
+            }
+            
+            saveData();
+            updateProductTable();
+            updateProductGrid();
+            productModal.classList.add('hidden');
+        }
+
+        // Update reports
+        function updateReports() {
+            // Today's date
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            // Filter today's sales
+            const todaySales = sales.filter(sale => {
+                const saleDate = new Date(sale.date).toISOString().split('T')[0];
+                return saleDate === todayStr;
+            });
+            
+            // Calculate today's totals
+            const todayTotal = todaySales.reduce((sum, sale) => sum + sale.total, 0);
+            const todayItems = todaySales.reduce((sum, sale) => {
+                return sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+            }, 0);
+            
+            // Filter this month's sales
+            const thisMonth = today.getMonth() + 1;
+            const thisYear = today.getFullYear();
+            const monthSales = sales.filter(sale => {
+                const saleDate = new Date(sale.date);
+                return saleDate.getMonth() + 1 === thisMonth && saleDate.getFullYear() === thisYear;
+            });
+            
+            // Calculate month's total
+            const monthTotal = monthSales.reduce((sum, sale) => sum + sale.total, 0);
+            
+            // Update UI
+            todaySalesElement.textContent = formatCurrency(todayTotal);
+            todayItemsElement.textContent = todayItems;
+            monthSalesElement.textContent = formatCurrency(monthTotal);
+            
+            // Update sales table
+            updateSalesTable();
+        }
+
+        // Update sales table
+        function updateSalesTable(filterStart = null, filterEnd = null) {
+            salesTableBody.innerHTML = '';
+            
+            let filteredSales = [...sales];
+            
+            if (filterStart && filterEnd) {
+                filteredSales = sales.filter(sale => {
+                    const saleDate = new Date(sale.date);
+                    return saleDate >= new Date(filterStart) && saleDate <= new Date(filterEnd + 'T23:59:59');
+                });
+            }
+            
+            if (filteredSales.length === 0) {
+                salesTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-gray-500">Nenhuma venda registrada</td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            filteredSales.forEach(sale => {
+                const saleDate = new Date(sale.date);
+                const dateStr = saleDate.toLocaleDateString('pt-BR');
+                const timeStr = saleDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const itemsCount = sale.items.reduce((sum, item) => sum + item.quantity, 0);
+                
+                const paymentText = 
+                    sale.payment === 'cash' ? 'Dinheiro' : 
+                    sale.payment === 'credit' ? 'Cartão Crédito' : 
+                    sale.payment === 'debit' ? 'Cartão Débito' : 'PIX';
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="py-2 px-4">${dateStr} ${timeStr}</td>
+                    <td class="py-2 px-4">${itemsCount}</td>
+                    <td class="py-2 px-4">${formatCurrency(sale.total)}</td>
+                    <td class="py-2 px-4">${paymentText}</td>
+                    <td class="py-2 px-4">
+                        <button class="text-blue-500 hover:text-blue-700 view-sale" data-id="${sale.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                `;
+                salesTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to view buttons
+            document.querySelectorAll('.view-sale').forEach(button => {
+                button.addEventListener('click', () => viewSale(parseInt(button.getAttribute('data-id'))));
+            });
+        }
+
+        // View sale details
+        function viewSale(id) {
+            const sale = sales.find(s => s.id === id);
+            if (!sale) return;
+            
+            const saleDate = new Date(sale.date);
+            const dateStr = saleDate.toLocaleDateString('pt-BR');
+            const timeStr = saleDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            
+            const paymentText = 
+                sale.payment === 'cash' ? 'Dinheiro' : 
+                sale.payment === 'credit' ? 'Cartão de Crédito' : 
+                sale.payment === 'debit' ? 'Cartão de Débito' : 'PIX';
+            
+            let itemsHtml = '';
+            sale.items.forEach(item => {
+                itemsHtml += `
+                    <div class="flex justify-between py-1 border-b">
+                        <div>
+                            <p class="font-medium">${item.name}</p>
+                            <p class="text-sm text-gray-500">${item.quantity} x ${formatCurrency(item.price)}</p>
+                        </div>
+                        <p class="font-semibold">${formatCurrency(item.subtotal)}</p>
+                    </div>
+                `;
+            });
+            
+            const modalHtml = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-lg">Detalhes da Venda #${sale.id}</h3>
+                            <button class="text-gray-500 hover:text-gray-700 close-sale-modal">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-gray-600">${dateStr} às ${timeStr}</p>
+                        </div>
+                        
+                        <div class="mb-4 max-h-64 overflow-y-auto">
+                            ${itemsHtml}
+                        </div>
+                        
+                        <div class="border-t pt-2">
+                            <div class="flex justify-between font-semibold mb-1">
+                                <span>Total:</span>
+                                <span>${formatCurrency(sale.total)}</span>
+                            </div>
+                            <div class="flex justify-between mb-1">
+                                <span>Forma de Pagamento:</span>
+                                <span>${paymentText}</span>
+                            </div>
+                            ${sale.payment === 'cash' ? `
+                                <div class="flex justify-between mb-1">
+                                    <span>Valor Recebido:</span>
+                                    <span>${formatCurrency(sale.received)}</span>
+                                </div>
+                                <div class="flex justify-between font-bold">
+                                    <span>Troco:</span>
+                                    <span>${formatCurrency(sale.change)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="flex justify-end mt-4">
+                            <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 print-sale" data-id="${sale.id}">
+                                <i class="fas fa-print mr-1"></i> Imprimir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = document.createElement('div');
+            modal.innerHTML = modalHtml;
+            document.body.appendChild(modal);
+            
+            // Add event listeners
+            modal.querySelector('.close-sale-modal').addEventListener('click', () => {
+                modal.remove();
+            });
+            
+            modal.querySelector('.print-sale').addEventListener('click', () => {
+                printReceipt(sale);
+            });
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            updateProductGrid();
+            updateProductTable();
+            updateReports();
+            
+            // Set default dates for reports filter
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            startDateInput.valueAsDate = firstDay;
+            endDateInput.valueAsDate = today;
+        });
+
+        // Tab switching
+        salesTab.addEventListener('click', () => {
+            salesTab.classList.add('active-tab');
+            productsTab.classList.remove('active-tab');
+            reportsTab.classList.remove('active-tab');
+            backupTab.classList.remove('active-tab');
+            salesContent.classList.remove('hidden');
+            productsContent.classList.add('hidden');
+            reportsContent.classList.add('hidden');
+            backupContent.classList.add('hidden');
+        });
+
+        productsTab.addEventListener('click', () => {
+            productsTab.classList.add('active-tab');
+            salesTab.classList.remove('active-tab');
+            reportsTab.classList.remove('active-tab');
+            backupTab.classList.remove('active-tab');
+            productsContent.classList.remove('hidden');
+            salesContent.classList.add('hidden');
+            reportsContent.classList.add('hidden');
+            backupContent.classList.add('hidden');
+        });
+
+        reportsTab.addEventListener('click', () => {
+            reportsTab.classList.add('active-tab');
+            salesTab.classList.remove('active-tab');
+            productsTab.classList.remove('active-tab');
+            backupTab.classList.remove('active-tab');
+            reportsContent.classList.remove('hidden');
+            salesContent.classList.add('hidden');
+            productsContent.classList.add('hidden');
+            backupContent.classList.add('hidden');
+        });
+
+        backupTab.addEventListener('click', () => {
+            backupTab.classList.add('active-tab');
+            salesTab.classList.remove('active-tab');
+            productsTab.classList.remove('active-tab');
+            reportsTab.classList.remove('active-tab');
+            backupContent.classList.remove('hidden');
+            salesContent.classList.add('hidden');
+            productsContent.classList.add('hidden');
+            reportsContent.classList.add('hidden');
+        });
+
+        // Payment method change
+        paymentMethod.addEventListener('change', () => {
+            currentSale.payment = paymentMethod.value;
+            
+            if (paymentMethod.value === 'cash') {
+                cashPayment.classList.remove('hidden');
+                calculateChange();
+            } else {
+                cashPayment.classList.add('hidden');
+                changeSection.classList.add('hidden');
+            }
+        });
+
+        // Amount received change
+        amountReceived.addEventListener('input', calculateChange);
+
+        // Cancel sale
+        cancelSaleBtn.addEventListener('click', () => {
+            if (currentSale.items.length === 0 || confirm('Tem certeza que deseja cancelar esta venda?')) {
+                currentSale = {
+                    items: [],
+                    payment: 'cash',
+                    received: 0,
+                    change: 0
+                };
+                
+                updateReceipt();
+                paymentMethod.value = 'cash';
+                amountReceived.value = '';
+                changeSection.classList.add('hidden');
+            }
+        });
+
+        // Complete sale
+        completeSaleBtn.addEventListener('click', completeSale);
+
+        // Add product button
+        addProductBtn.addEventListener('click', addProduct);
+
+        // Close modal
+        closeModalBtn.addEventListener('click', () => {
+            productModal.classList.add('hidden');
+        });
+
+        cancelProductBtn.addEventListener('click', () => {
+            productModal.classList.add('hidden');
+        });
+
+        // Save product
+        productForm.addEventListener('submit', saveProduct);
+
+        // Filter reports
+        filterReportsBtn.addEventListener('click', () => {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            
+            if (!startDate || !endDate) {
+                alert('Selecione ambas as dates para filtrar!');
+                return;
+            }
+            
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('A data inicial não pode ser maior que a data final!');
+                return;
+            }
+            
+            updateSalesTable(startDate, endDate);
+        });
+
+        // Search products
+        searchBtn.addEventListener('click', () => {
+            updateProductGrid(productSearch.value);
+        });
+
+        productSearch.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                updateProductGrid(productSearch.value);
+            }
+        });
+
+        // Export data
+        exportDataBtn.addEventListener('click', exportData);
+
+        // Import data
+        importFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                importDataBtn.disabled = false;
+            } else {
+                importDataBtn.disabled = true;
+            }
+        });
+
+        importDataBtn.addEventListener('click', () => {
+            if (importFileInput.files.length > 0) {
+                importData(importFileInput.files[0]);
+            }
+        });
+
+        // Clear data
+        clearDataBtn.addEventListener('click', clearData);
+    </script>
+</body>
+</html>
